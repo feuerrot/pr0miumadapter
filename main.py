@@ -2,21 +2,34 @@
 import websockets
 import socket
 import asyncio
+import json
+import traceback
+import time
 
 config = {
 	'ws_server': 'ws://miner.pr0gramm.com',
-	'ws_port': '8044'
+	'ws_port': '8044',
+	'user': 'feuerrot'
 }
 
-getshares = '{"type":"get_shares","params":{"user":"feuerrot"}}'
-
 def proxy_tcp_to_ws(input):
-	print("PROXY TCP -> WS")
-	return input
-
-def proxy_ws_to_tcp(input):
-	print("PROXY WS -> TCP")
-	return input
+	try:
+		j = json.loads(input)
+		if j['method'] == 'submit':
+			rtn = {
+				'type': 'submit',
+				'params': {
+					'user': config['user'],
+					'job_id': j['params']['job_id'],
+					'nonce': j['params']['nonce'],
+					'result': j['params']['result']
+				}
+			}
+			#print('{"type":"submit","params":{"user":"feuerrot","job_id":"{}","nonce":"{}","result":"{}"}}'.format(j['params']['job_id'], j['params']['nonce'], j['params']['result']))
+			return json.dumps(rtn).replace(' ','')
+	except Exception as e:
+		print("proxy_tcp_to_ws()")
+		print(e)
 
 async def tcp_to_ws(reader, ws):
 	while True:
@@ -24,26 +37,92 @@ async def tcp_to_ws(reader, ws):
 		try:
 			if data:
 				data = data.decode('ascii').strip()
+				print("TCP2WS: {}".format(data))
+				data = proxy_tcp_to_ws(data)
+				if data == None:
+					continue
+				#data += '\n'
+				print("TCP2WS: {}".format(data))
+				await ws.send(data)
 			else:
 				return
-			if data:
-				await ws.send(proxy_tcp_to_ws(data))
 		except Exception as e:
-			print(e)
+			print("tcp_to_ws()")
+			traceback.print_exc()
 			return
 
+def proxy_ws_to_tcp(input, state):
+	try:
+		j = json.loads(input)
+		if j['type'] == 'job':
+			if state['login']:
+				rtn = {
+					'jsonrpc': '2.0',
+					'method': 'job',
+					'params': {
+						'blob': j['params']['blob'],
+						'job_id': j['params']['job_id'],
+						'target': j['params']['target']
+					}
+				}
+			else:
+				state['login'] = True
+				time.sleep(1)
+				rtn = {
+					'id': 1,
+					'jsonrpc': '2.0',
+					'error': None,
+					'result': {
+						'id': "714335549157112",
+						'job': {
+							'blob': j['params']['blob'],
+							'job_id': j['params']['job_id'],
+							'target': j['params']['target']
+						},
+						'status': 'ok'
+					},
+				}
+		elif j['type'] == 'job_accepted':
+			print('job accepted')
+			rtn = {
+				"id": 1,
+				"jsonrpc": "2.0",
+				"error": None,
+				"result": {
+					"status": "OK"
+				}
+			}
+		else:
+			rtn = None
+		if rtn != None:
+			return json.dumps(rtn).replace(' ',''), state
+		else:
+			return None, state
+	except Exception as e:
+		print("proxy_ws_to_tcp()")
+		print(e)
+
 async def ws_to_tcp(writer, ws):
+	state = {
+		'login': False,
+	}
 	while True:
 		data = await ws.recv()
 		try:
 			if data:
-				data = proxy_ws_to_tcp(data)
+				print("WS2TCP: {}".format(data))
+				(data, state) = proxy_ws_to_tcp(data, state)
+				if data == None:
+					continue
+				data += '\n'
+				print("WS2TCP: {}".format(data))
 				data = data.encode('ascii')
 				writer.write(data)
 				await writer.drain()
 			else:
 				return
 		except Exception as e:
+			print("ws_to_tcp()")
 			print(e)
 			return
 
