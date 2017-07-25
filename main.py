@@ -9,8 +9,19 @@ import time
 config = {
 	'ws_server': 'ws://miner.pr0gramm.com',
 	'ws_port': '8044',
-	'user': 'feuerrot'
+	'user': 'feuerrot',
+	'sharespersecond': 20
 }
+
+def sharestostring(input):
+	try:
+		shares = int(input)
+		seconds = shares / config['sharespersecond']
+		days = int(seconds/(60*60*24))
+		hours = (seconds - days*24*60*60)/60/60
+		return "{} shares - {} days {:.2f} hours".format(shares, days, hours)
+	except:
+		return "{} shares".format(input)
 
 def proxy_tcp_to_ws(input):
 	try:
@@ -57,7 +68,7 @@ def proxy_ws_to_tcp(input, state):
 			}
 			print('WS2TCP: new job: {}'.format(rtn['params']['job_id']))
 		elif j['type'] == 'job_accepted':
-			print('WS2TCP: job accepted - {}'.format(j['params']['shares']))
+			print('WS2TCP: job accepted - {}'.format(sharestostring(j['params']['shares'])))
 			rtn = {
 				"id": 1,
 				"jsonrpc": "2.0",
