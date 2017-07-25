@@ -112,7 +112,7 @@ def handle_client(client_reader, client_writer):
 
 if __name__ == '__main__':
 	loop = asyncio.get_event_loop()
-	f = asyncio.start_server(handle_client, host=None, port=1234)
+	f = asyncio.start_server(handle_client, host="127.0.0.1", port=1234)
 	loop.run_until_complete(f)
 	try:
 		loop.run_forever()
