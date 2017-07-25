@@ -16,17 +16,7 @@ def proxy_tcp_to_ws(input):
 	try:
 		j = json.loads(input)
 		if j['method'] == 'submit':
-			rtn = {
-				'type': 'submit',
-				'params': {
-					'user': config['user'],
-					'job_id': j['params']['job_id'],
-					'nonce': j['params']['nonce'],
-					'result': j['params']['result']
-				}
-			}
-			#print('{"type":"submit","params":{"user":"feuerrot","job_id":"{}","nonce":"{}","result":"{}"}}'.format(j['params']['job_id'], j['params']['nonce'], j['params']['result']))
-			return json.dumps(rtn).replace(' ','')
+			return '{{"type":"submit","params":{{"user":"feuerrot","job_id":"{}","nonce":"{}","result":"{}"}}}}'.format(j['params']['job_id'], j['params']['nonce'], j['params']['result'])
 	except Exception as e:
 		print("proxy_tcp_to_ws()")
 		print(e)
@@ -55,33 +45,15 @@ def proxy_ws_to_tcp(input, state):
 	try:
 		j = json.loads(input)
 		if j['type'] == 'job':
-			if state['login']:
-				rtn = {
-					'jsonrpc': '2.0',
-					'method': 'job',
-					'params': {
-						'blob': j['params']['blob'],
-						'job_id': j['params']['job_id'],
-						'target': j['params']['target']
-					}
+			rtn = {
+				'jsonrpc': '2.0',
+				'method': 'job',
+				'params': {
+					'blob': j['params']['blob'],
+					'job_id': j['params']['job_id'],
+					'target': j['params']['target']
 				}
-			else:
-				state['login'] = True
-				time.sleep(1)
-				rtn = {
-					'id': 1,
-					'jsonrpc': '2.0',
-					'error': None,
-					'result': {
-						'id': "714335549157112",
-						'job': {
-							'blob': j['params']['blob'],
-							'job_id': j['params']['job_id'],
-							'target': j['params']['target']
-						},
-						'status': 'ok'
-					},
-				}
+			}
 		elif j['type'] == 'job_accepted':
 			print('job accepted')
 			rtn = {
