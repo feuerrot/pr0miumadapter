@@ -17,6 +17,7 @@ def proxy_tcp_to_ws(input):
 		j = json.loads(input)
 		if j['method'] == 'submit':
 			return '{{"type":"submit","params":{{"user":"feuerrot","job_id":"{}","nonce":"{}","result":"{}"}}}}'.format(j['params']['job_id'], j['params']['nonce'], j['params']['result'])
+			print("TCP2WS: submit job {} nonce {}".format(j['params']['job_id'], j['params']['nonce']))
 	except Exception as e:
 		print("proxy_tcp_to_ws()")
 		print(e)
@@ -27,12 +28,12 @@ async def tcp_to_ws(reader, ws):
 		try:
 			if data:
 				data = data.decode('ascii').strip()
-				print("TCP2WS: {}".format(data))
+				#print("TCP2WS: {}".format(data))
 				data = proxy_tcp_to_ws(data)
 				if data == None:
 					continue
 				#data += '\n'
-				print("TCP2WS: {}".format(data))
+				#print("TCP2WS: {}".format(data))
 				await ws.send(data)
 			else:
 				return
@@ -54,8 +55,9 @@ def proxy_ws_to_tcp(input, state):
 					'target': j['params']['target']
 				}
 			}
+			print('WS2TCP: new job: {}'.format(rtn['params']['job_id']))
 		elif j['type'] == 'job_accepted':
-			print('job accepted')
+			print('WS2TCP: job accepted - {}'.format(j['params']['shares']))
 			rtn = {
 				"id": 1,
 				"jsonrpc": "2.0",
@@ -82,12 +84,12 @@ async def ws_to_tcp(writer, ws):
 		data = await ws.recv()
 		try:
 			if data:
-				print("WS2TCP: {}".format(data))
+				#print("WS2TCP: {}".format(data))
 				(data, state) = proxy_ws_to_tcp(data, state)
 				if data == None:
 					continue
 				data += '\n'
-				print("WS2TCP: {}".format(data))
+				#print("WS2TCP: {}".format(data))
 				data = data.encode('ascii')
 				writer.write(data)
 				await writer.drain()
