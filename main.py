@@ -27,8 +27,17 @@ def proxy_tcp_to_ws(input):
 	try:
 		j = json.loads(input)
 		if j['method'] == 'submit':
-			return '{{"type":"submit","params":{{"user":"feuerrot","job_id":"{}","nonce":"{}","result":"{}"}}}}'.format(j['params']['job_id'], j['params']['nonce'], j['params']['result'])
+			rtn = {
+				'type': 'submit',
+				'params': {
+					'user': config['user'],
+					'job_id': j['params']['job_id'],
+					'nonce': j['params']['nonce'],
+					'result': j['params']['result']
+				}
+			}
 			print("TCP2WS: submit job {} nonce {}".format(j['params']['job_id'], j['params']['nonce']))
+			return json.dumps(rtn)
 	except Exception as e:
 		print("proxy_tcp_to_ws()")
 		print(e)
@@ -123,7 +132,7 @@ def handle_client(client_reader, client_writer):
 
 if __name__ == '__main__':
 	loop = asyncio.get_event_loop()
-	f = asyncio.start_server(handle_client, host="127.0.0.1", port=1234)
+	f = asyncio.start_server(handle_client, host=None, port=1234)
 	loop.run_until_complete(f)
 	try:
 		loop.run_forever()
