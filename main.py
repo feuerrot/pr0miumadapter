@@ -122,7 +122,7 @@ async def proxy_ws_to_tcp(input, sync):
 				"id": await sync.queue.get(),
 				"jsonrpc": "2.0",
 				"error": {
-					'code': '21',
+					'code': '22',
 					'message': j['params']['error']['message'],
 				},
 				"result": None
