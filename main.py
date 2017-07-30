@@ -118,7 +118,15 @@ async def proxy_ws_to_tcp(input, sync):
 		elif j['type'] == 'error':
 			await sync.queue.get()
 			print('W2T: Error: {}'.format(j['params']['error']['message']))
-			return None
+			rtn = {
+				"id": await sync.queue.get(),
+				"jsonrpc": "2.0",
+				"error": {
+					'code': '21',
+					'message': j['params']['error']['message'],
+				},
+				"result": None
+			}
 		else:
 			return None
 		return json.dumps(rtn).replace(' ','')
