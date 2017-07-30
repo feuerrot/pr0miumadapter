@@ -9,9 +9,15 @@ import time
 config = {
 	'ws_server': 'ws://miner.pr0gramm.com',
 	'ws_port': '8044',
-	'user': 'feuerrot',
+	'defaultuser': 'feuerrot',
 	'sharespersecond': 20
 }
+
+class Sync():
+	def __init__(self):
+		self.user = None
+		self.login = False
+		self.queue = asyncio.Queue()
 
 def sharestostring(input):
 	try:
@@ -23,37 +29,43 @@ def sharestostring(input):
 	except:
 		return "{} shares".format(input)
 
-def proxy_tcp_to_ws(input):
+async def proxy_tcp_to_ws(input, sync):
 	try:
 		j = json.loads(input)
-		if j['method'] == 'submit':
+		if j['id']:
+			await sync.queue.put(j['id'])
+		if j['method'] == 'login':
+			if not j['params']['login'] == 'x':
+				sync.user = j['params']['login']
+		elif j['method'] == 'submit':
 			rtn = {
 				'type': 'submit',
 				'params': {
-					'user': config['user'],
+					'user': sync.user or config['defaultuser'],
 					'job_id': j['params']['job_id'],
 					'nonce': j['params']['nonce'],
 					'result': j['params']['result']
 				}
 			}
-			print("TCP2WS: submit job {} nonce {}".format(j['params']['job_id'], j['params']['nonce']))
+			print("T2W: submit job {} nonce {}".format(j['params']['job_id'], j['params']['nonce']))
 			return json.dumps(rtn)
+		return None
 	except Exception as e:
 		print("proxy_tcp_to_ws()")
-		print(e)
+		traceback.print_exc()
 
-async def tcp_to_ws(reader, ws):
+async def tcp_to_ws(reader, ws, sync):
 	while True:
 		data = await reader.read(1024)
 		try:
 			if data:
 				data = data.decode('ascii').strip()
-				#print("TCP2WS: {}".format(data))
-				data = proxy_tcp_to_ws(data)
+				#print("T2W: {}".format(data))
+				data = await proxy_tcp_to_ws(data, sync)
 				if data == None:
 					continue
 				#data += '\n'
-				#print("TCP2WS: {}".format(data))
+				#print("T2W: {}".format(data))
 				await ws.send(data)
 			else:
 				return
@@ -62,24 +74,42 @@ async def tcp_to_ws(reader, ws):
 			traceback.print_exc()
 			return
 
-def proxy_ws_to_tcp(input, state):
+async def proxy_ws_to_tcp(input, sync):
 	try:
 		j = json.loads(input)
 		if j['type'] == 'job':
-			rtn = {
-				'jsonrpc': '2.0',
-				'method': 'job',
-				'params': {
-					'blob': j['params']['blob'],
-					'job_id': j['params']['job_id'],
-					'target': j['params']['target']
+			if sync.login:
+				rtn = {
+					'jsonrpc': '2.0',
+					'method': 'job',
+					'params': {
+						'blob': j['params']['blob'],
+						'job_id': j['params']['job_id'],
+						'target': j['params']['target']
+					}
 				}
-			}
-			print('WS2TCP: new job: {}'.format(rtn['params']['job_id']))
+			else:
+				_id = await sync.queue.get()
+				rtn = {
+					'id': _id,
+					'jsonrpc': '2.0',
+					'error': None,
+					'result': {
+						'status': 'ok',
+						'id': '000000000000000',
+						'job': {
+							'blob': j['params']['blob'],
+							'job_id': j['params']['job_id'],
+							'target': j['params']['target']
+						}
+					}
+				}
+				sync.login = True
+			print('W2T: new job: {}'.format(j['params']['job_id']))
 		elif j['type'] == 'job_accepted':
-			print('WS2TCP: job accepted - {}'.format(sharestostring(j['params']['shares'])))
+			print('W2T: job accepted - {}'.format(sharestostring(j['params']['shares'])))
 			rtn = {
-				"id": 1,
+				"id": await sync.queue.get(),
 				"jsonrpc": "2.0",
 				"error": None,
 				"result": {
@@ -87,29 +117,24 @@ def proxy_ws_to_tcp(input, state):
 				}
 			}
 		else:
-			rtn = None
-		if rtn != None:
-			return json.dumps(rtn).replace(' ',''), state
-		else:
-			return None, state
+			return None
+		return json.dumps(rtn).replace(' ','')
+		
 	except Exception as e:
 		print("proxy_ws_to_tcp()")
-		print(e)
+		traceback.print_exc()
 
-async def ws_to_tcp(writer, ws):
-	state = {
-		'login': False,
-	}
+async def ws_to_tcp(writer, ws, sync):
 	while True:
 		data = await ws.recv()
 		try:
 			if data:
-				#print("WS2TCP: {}".format(data))
-				(data, state) = proxy_ws_to_tcp(data, state)
+				#print("W2T: {}".format(data))
+				data = await proxy_ws_to_tcp(data, sync)
 				if data == None:
 					continue
 				data += '\n'
-				#print("WS2TCP: {}".format(data))
+				#print("W2T: {}".format(data))
 				data = data.encode('ascii')
 				writer.write(data)
 				await writer.drain()
@@ -123,8 +148,9 @@ async def ws_to_tcp(writer, ws):
 async def accept_client(client_reader, client_writer):
 	print("accepted client: {}".format(client_writer.get_extra_info('peername')))
 	ws = await websockets.connect("{}:{}".format(config['ws_server'], config['ws_port']))
-	a = asyncio.ensure_future(tcp_to_ws(client_reader, ws))
-	b = asyncio.ensure_future(ws_to_tcp(client_writer, ws))
+	sync = Sync()
+	asyncio.ensure_future(tcp_to_ws(client_reader, ws, sync))
+	asyncio.ensure_future(ws_to_tcp(client_writer, ws, sync))
 
 def handle_client(client_reader, client_writer):
 	print("got client")
