@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import websockets
-import socket
 import asyncio
 import json
 import traceback
-import time
+import sys
 
 config = {
 	'ws_server': 'ws://miner.pr0gramm.com',
@@ -157,8 +156,13 @@ def handle_client(client_reader, client_writer):
 	asyncio.ensure_future(accept_client(client_reader, client_writer))
 
 if __name__ == '__main__':
+	(l_host, l_port) = ('localhost', 1234)
+	if len(sys.argv) == 2:
+		l_host = sys.argv[1]
+	if len(sys.argv) == 3:
+		l_port = int(sys.argv[2])
 	loop = asyncio.get_event_loop()
-	f = asyncio.start_server(handle_client, host=None, port=1234)
+	f = asyncio.start_server(handle_client, host=l_host, port=l_port)
 	loop.run_until_complete(f)
 	try:
 		loop.run_forever()
