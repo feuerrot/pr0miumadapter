@@ -115,6 +115,10 @@ async def proxy_ws_to_tcp(input, sync):
 					"status": "OK"
 				}
 			}
+		elif j['type'] == 'error':
+			await sync.queue.get()
+			print('W2T: Error: {}'.format(j['params']['error']['message']))
+			return None
 		else:
 			return None
 		return json.dumps(rtn).replace(' ','')
