@@ -1,7 +1,15 @@
 # pr0miumadapter
-1. Code lesen
-2. Code nicht verstehen
-3. Anderen Code verwenden
+Erlaubt es, den [pr0miner](http://miner.pr0gramm.com/) mit optimierten
+Moneropoolclients zu verwenden. Natürlich auf eigene Gefahr.
+Dient außerdem als python asyncio Spielwiese, da ich das vorher nie
+verwendet habe.
+
+## Usage
+```
+./mkvenv.sh
+./run.sh [host] [port]
+```
+host und port sind optional
 
 ## Updates
 ### 2017-07-30
