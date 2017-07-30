@@ -129,7 +129,7 @@ async def proxy_ws_to_tcp(input, sync):
 			}
 		else:
 			return None
-		return json.dumps(rtn).replace(' ','')
+		return json.dumps(rtn)
 		
 	except Exception as e:
 		print("proxy_ws_to_tcp()")
