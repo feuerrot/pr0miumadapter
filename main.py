@@ -84,6 +84,7 @@ async def tcp_to_ws(reader, ws, sync):
 			return
 		except Exception as e:
 			print("tcp_to_ws()")
+			sync.destroy = True
 			traceback.print_exc()
 			return
 
@@ -174,6 +175,7 @@ async def ws_to_tcp(writer, ws, sync):
 		except Exception as e:
 			print("ws_to_tcp()")
 			print(e)
+			sync.destroy = True
 			return
 
 async def accept_client(client_reader, client_writer):
