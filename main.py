@@ -153,8 +153,8 @@ async def ws_to_tcp(writer, ws, sync):
 	while True:
 		if sync.destroy:
 			return
-		data = await ws.recv()
 		try:
+			data = await ws.recv()
 			if data:
 				#print("W2T: {}".format(data))
 				data = await proxy_ws_to_tcp(data, sync)
