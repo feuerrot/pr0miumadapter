@@ -12,6 +12,9 @@ verwendet habe.
 host und port sind optional
 
 ## Updates
+### 2017-09-14
+* Kann in diesem Branch mit [coin-hive](https://coin-hive.com/) im anonymen Modus verwendet werden.
+
 ### 2017-07-30
 * Benötigt inzwischen keinen gepatchten Miner mehr, erneuter Login nach Verbindungsabbruch könnte aber noch kaputt sein.
 * ./main.py [host [port]] listend auf angegebenem host und port, ansonsten localhost und 1234

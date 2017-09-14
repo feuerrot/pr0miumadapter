@@ -6,9 +6,9 @@ import traceback
 import sys
 
 config = {
-	'ws_server': 'ws://miner.pr0gramm.com',
-	'ws_port': '8044',
-	'defaultuser': 'feuerrot',
+	'ws_server': 'wss://ws001.coin-hive.com/proxy',
+	'ws_port': '443',
+	'site_key': 'NdLx8i4BRDDAw7W9BnOn1q1B5DjU6vjJ',
 	'sharespersecond': 20
 }
 
@@ -17,6 +17,7 @@ class Sync():
 		self.user = None
 		self.login = False
 		self.queue = asyncio.Queue()
+		self.destroy = False
 
 def sharestostring(input):
 	try:
@@ -34,27 +35,36 @@ async def proxy_tcp_to_ws(input, sync):
 		if j['id']:
 			await sync.queue.put(j['id'])
 		if j['method'] == 'login':
-			if not j['params']['login'] == 'x':
-				sync.user = j['params']['login']
+			rtn = {
+				'type': 'auth',
+				'params': {
+					'site_key': config['site_key'],
+					'type': 'anonymous',
+					'goal': 0,
+					'user': ''
+				}
+			}
 		elif j['method'] == 'submit':
 			rtn = {
 				'type': 'submit',
 				'params': {
-					'user': sync.user or config['defaultuser'],
 					'job_id': j['params']['job_id'],
 					'nonce': j['params']['nonce'],
-					'result': j['params']['result']
+					'result': j['params']['result'],
+					'wasm': 0,
+					'ua': 'feuerrot\'s serioeses Adapterding'
 				}
 			}
 			print("T2W: submit job {} nonce {}".format(j['params']['job_id'], j['params']['nonce']))
-			return json.dumps(rtn)
-		return None
+		return json.dumps(rtn)
 	except Exception as e:
 		print("proxy_tcp_to_ws()")
 		traceback.print_exc()
 
 async def tcp_to_ws(reader, ws, sync):
 	while True:
+		if sync.destroy:
+			return
 		data = await reader.read(1024)
 		try:
 			if data:
@@ -67,7 +77,11 @@ async def tcp_to_ws(reader, ws, sync):
 				#print("T2W: {}".format(data))
 				await ws.send(data)
 			else:
+				sync.destroy = True
 				return
+		except websockets.exceptions.ConnectionClosed:
+			sync.destroy = True
+			return
 		except Exception as e:
 			print("tcp_to_ws()")
 			traceback.print_exc()
@@ -105,8 +119,8 @@ async def proxy_ws_to_tcp(input, sync):
 				}
 				sync.login = True
 			print('W2T: new job: {}'.format(j['params']['job_id']))
-		elif j['type'] == 'job_accepted':
-			print('W2T: job accepted - {}'.format(sharestostring(j['params']['shares'])))
+		elif j['type'] == 'hash_accepted':
+			print('W2T: job accepted - {}'.format(sharestostring(j['params']['hashes'])))
 			rtn = {
 				"id": await sync.queue.get(),
 				"jsonrpc": "2.0",
@@ -137,6 +151,8 @@ async def proxy_ws_to_tcp(input, sync):
 
 async def ws_to_tcp(writer, ws, sync):
 	while True:
+		if sync.destroy:
+			return
 		data = await ws.recv()
 		try:
 			if data:
@@ -150,7 +166,11 @@ async def ws_to_tcp(writer, ws, sync):
 				writer.write(data)
 				await writer.drain()
 			else:
+				sync.destroy = True
 				return
+		except websockets.exceptions.ConnectionClosed:
+			sync.destroy = True
+			return
 		except Exception as e:
 			print("ws_to_tcp()")
 			print(e)
@@ -168,13 +188,8 @@ def handle_client(client_reader, client_writer):
 	asyncio.ensure_future(accept_client(client_reader, client_writer))
 
 if __name__ == '__main__':
-	(l_host, l_port) = ('localhost', 1234)
-	if len(sys.argv) == 2:
-		l_host = sys.argv[1]
-	if len(sys.argv) == 3:
-		l_port = int(sys.argv[2])
 	loop = asyncio.get_event_loop()
-	f = asyncio.start_server(handle_client, host=l_host, port=l_port)
+	f = asyncio.start_server(handle_client, host='localhost', port=1234)
 	loop.run_until_complete(f)
 	try:
 		loop.run_forever()
